@@ -282,6 +282,224 @@ subtest "list methods" => sub {
 
 };
 
+subtest "as_list_of" => sub {
+
+    my %data = (
+        'sane' => {
+            'list'           => [ 'a', 1, 'b', 2, 'c', 3, 'd', 4, 'e', 5, 'f', 6 ],
+            'list_of_arrays' =>
+              [ [ 'a', 1 ], [ 'b', 2 ], [ 'c', 3 ], [ 'd', 4 ], [ 'e', 5 ], [ 'f', 6 ] ],
+            'list_of_hashes' => [
+                { 'a' => 1 },
+                { 'b' => 2 },
+                { 'c' => 3 },
+                { 'd' => 4 },
+                { 'e' => 5 },
+                { 'f' => 6 }
+            ]
+        },
+        'slice' => {
+            'list'           => [ 'd',          4,            'b', 2, 'f', 6, 'h', undef ],
+            'list_of_arrays' => [ [ 'd', 4 ],   [ 'b', 2 ],   [ 'f', 6 ],   [ 'h', undef ] ],
+            'list_of_hashes' => [ { 'd' => 4 }, { 'b' => 2 }, { 'f' => 6 }, { 'h' => undef } ],
+            'keys'           => [ 'd',          'b',          'f',          'h' ]
+        },
+        'undef' => [
+            [ 'a',   1 ],
+            [ 'b',   2 ],
+            [ 'c',   3 ],
+            [ undef, 0 ],
+            [ 'd',   4 ],
+            [ 'e',   5 ],
+            [ 'f',   6 ]
+        ],
+        'unweird' => {
+            'list'           => [ 'a',          1, 'f', 6 ],
+            'list_of_arrays' => [ [ 'a', 1 ],   [ 'f', 6 ] ],
+            'list_of_hashes' => [ { 'a' => 1 }, { 'f' => 6 } ]
+        },
+        'weird' => {
+            'list'           => [ 'a', 42, 'b', 2, 'c', 3, 'd', 4, 'e', 5, 'f', 0 ],
+            'list_of_arrays' =>
+              [ [ 'a', 42 ], [ 'b', 2 ], [ 'c', 3 ], [ 'd', 4 ], [ 'e', 5 ], [ 'f', 0 ] ],
+            'list_of_hashes' => [
+                { 'a' => 42 },
+                { 'b' => 2 },
+                { 'c' => 3 },
+                { 'd' => 4 },
+                { 'e' => 5 },
+                { 'f' => 0 }
+            ]
+        }
+    );
+
+    # arrays
+    {
+        # as_list_of_arrays
+        {
+            my $hash = new_ok( HO, [ @{ $data{sane}{list} } ] );
+
+            cmp_deeply(
+                [ $hash->as_list_of_arrays ],
+                [ @{ $data{sane}{list_of_arrays} } ],
+                'as_list_of_arrays of whole hash'
+            );
+
+            cmp_deeply(
+                [ $hash->as_list_of_arrays(@{$data{slice}{keys}}) ],
+                [ @{ $data{slice}{list_of_arrays} } ],
+                'as_list_of_arrays slice'
+            );
+        }
+
+        # merge_arrays
+        {
+            my $hash = new_ok(HO);
+            $hash->merge_arrays( @{ $data{sane}{list_of_arrays} } );
+
+            cmp_deeply(
+                [ $hash->as_list ],
+                [ @{ $data{sane}{list} } ],
+                'merge_arrays with empty hash',
+            );
+
+        }
+
+        {
+            my $hash = new_ok(HO);
+            $hash->merge_arrays( @{ $data{undef} } );
+
+            cmp_deeply(
+                [ $hash->as_list ],
+                [ @{ $data{sane}{list} } ],
+                'merge_arrays with undef "key"'
+            );
+
+        }
+
+        {
+            my $hash = new_ok( HO, [ @{ $data{weird}{list} } ] );
+
+            $hash->merge_arrays( @{ $data{unweird}{list_of_arrays} } );
+
+            cmp_deeply(
+                [ $hash->as_list ],
+                [ @{ $data{sane}{list} } ],
+                'merge_arrays with subset'
+            );
+
+        }
+
+        {
+            like(
+                exception {
+                    new_ok(HO)->merge_arrays( @{ $data{sane}{list} } );
+                },
+                qr/\Qmerge_arrays() requires list of array references/,
+                'merge_arrays gets list of scalars',
+            );
+        }
+
+        {
+            like(
+                exception {
+                    new_ok(HO)->merge_arrays( @{ $data{sane}{list_of_hashes} } );
+                },
+                qr/\Qmerge_arrays() requires list of array references/,
+                'merge_arrays gets list of hashes',
+            );
+        }
+
+        {
+            like(
+                exception {
+                    new_ok(HO)->merge_arrays( a => 1, [ b => 2 ], { c => 3 } );
+                },
+                qr/\Qmerge_arrays() requires list of array references/,
+                'merge_arrays gets mixed list',
+            );
+        }
+    }
+
+    # hashes
+    {
+        # as_list_of_hashes
+        {
+            my $hash = new_ok( HO, [ @{ $data{sane}{list} } ] );
+
+            cmp_deeply(
+                [ $hash->as_list_of_hashes ],
+                [ @{ $data{sane}{list_of_hashes} } ],
+                'as_list_of_hashes of whole hash'
+            );
+
+            cmp_deeply(
+                [ $hash->as_list_of_hashes(@{$data{slice}{keys}}) ],
+                [ @{ $data{slice}{list_of_hashes} } ],
+                'as_list_of_hashes slice'
+            );
+        }
+
+        # merge_hashes
+        {
+            my $hash = new_ok(HO);
+            $hash->merge_hashes( @{ $data{sane}{list_of_hashes} } );
+
+            cmp_deeply(
+                [ $hash->as_list ],
+                [ @{ $data{sane}{list} } ],
+                'merge_hashes with empty hash',
+            );
+
+        }
+
+        {
+            my $hash = new_ok( HO, [ @{ $data{weird}{list} } ] );
+
+            $hash->merge_hashes( @{ $data{unweird}{list_of_hashes} } );
+
+            cmp_deeply(
+                [ $hash->as_list ],
+                [ @{ $data{sane}{list} } ],
+                'merge_hashes with subset'
+            );
+
+        }
+
+        {
+            like(
+                exception {
+                    new_ok(HO)->merge_hashes( @{ $data{sane}{list} } );
+                },
+                qr/\Qmerge_hashes() requires list of hash references/,
+                'merge_hashes gets list of scalars',
+            );
+        }
+
+        {
+            like(
+                exception {
+                    new_ok(HO)->merge_hashes( @{ $data{sane}{list_of_arrays} } );
+                },
+                qr/\Qmerge_hashes() requires list of hash references/,
+                'merge_hashes gets list of arrays',
+            );
+        }
+
+        {
+            like(
+                exception {
+                    new_ok(HO)->merge_hashes( a => 1, [ b => 2 ], { c => 3 } );
+                },
+                qr/\Qmerge_hashes() requires list of hash references/,
+                'merge_hashes gets mixed list',
+            );
+        }
+    }
+
+};
+      
+
 subtest "modifiers" => sub {
 
     my $hash = new_ok( HO, [ 'a' => 0 ] );

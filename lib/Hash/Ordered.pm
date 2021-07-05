@@ -419,6 +419,99 @@ sub as_list {
       ( @_ ? @_ : grep !ref($_), @{ $self->[_KEYS] } );
 }
 
+=method as_list_of_arrays
+
+    @AoA = $oh->as_list_of_arrays;
+    @AoA = $oh->as_list_of_arrays( @keys );
+
+Similar to L</"as_list"> but each key-value pair is returned as a
+two-element array reference, so that after
+
+    @AoA = $oh->as_list_of_arrays( 'one', 'two' );
+
+C<@AoA> is
+
+    ( [ 'one', $value_of_one ], [ 'two', $value_of_two ] )
+
+=cut
+
+sub as_list_of_arrays {
+    my $self = CORE::shift;
+    my @keys = @_ ? @_                : $self->keys;
+    my @vals = @_ ? $self->values(@_) : $self->values;
+    return map { ; [ $keys[$_], $vals[$_] ] } 0 .. $#keys;
+}
+
+=method merge_arrays
+
+    $oh->merge_arrays( [ 'one', 1 ], [ 'two', 2 ] );
+
+Takes a list of array references, assumed to each be a key-value pair,
+and merges those pairs into the ordered hash. This is mostly the
+opposite of L</"as_list_of_arrays"> but argument arrayrefs where the first
+element, i.e. the key, is C<undef> are ignored. Additional elements
+in argument array arrayrefs are also ignored.
+
+=cut
+
+sub merge_arrays {
+    my $self = CORE::shift;
+    Carp::croak('merge_arrays() requires list of array references')
+      if grep { ref($_) ne 'ARRAY' } @_;
+    my @pairs = map { ; ( $_->[0] => $_->[1] ) }
+      grep { defined $_->[0] } @_;
+    $self->merge(@pairs);
+}
+
+=method as_list_of_hashes
+
+    @AoH = $oh->as_list_of_hashes;
+    @AoH = $oh->as_list_of_hashes( @keys );
+
+This is like L</"as_list_of_arrays"> but instead of two-element array references
+the return values are C<< { $key => $value } >> single-element
+hash references. This is useful for serializing the data in the
+ordered hash as e.g. JSON or YAML, since you will get a list of
+two-element objects which can easily be converted back to an ordered
+hash, e.g. with the L</"merge_hashes"> method, like this YAML
+
+    ---
+    - one: 1
+    - two: 2
+    - three: 3
+
+which is the recommended way to represent an ordered mapping in YAML.
+
+=cut
+
+sub as_list_of_hashes {
+    my $self = CORE::shift;
+    return map { ; +{@$_} } $self->as_list_of_arrays(@_);
+}
+
+=method merge_hashes
+
+    $oh->merge_hashes( \%hash_0, \%hash_2 );
+
+Merges one or more hash references into the ordered hash. This is
+basically syntactic sugar for
+
+    $oh->merge( map { ; %$_ } @hashrefs );
+
+but with a check that all arguments are hash references.
+
+If all arguments are single-element hash references this is the reverse
+of L</"as_list_of_hashes">.
+
+=cut
+
+sub merge_hashes {
+    my $self = CORE::shift;
+    Carp::croak('merge_hashes() requires list of hash references')
+      if grep { ref($_) ne 'HASH' } @_;
+    $self->merge( map { ; %$_ } @_ );
+}
+
 =method iterator
 
     $iter = $oh->iterator;
