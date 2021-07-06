@@ -282,6 +282,102 @@ subtest "list methods" => sub {
 
 };
 
+subtest "zip" => sub {
+
+    # sensible arguments
+    {
+        my $hash = new_ok(HO);
+
+        $hash->zip( [qw(a b c)], [ 1, 2, 3 ] );
+
+        cmp_deeply( [ $hash->as_list ], [qw(a 1 b 2 c 3)], 'into empty hash' );
+
+        $hash->zip( [qw(d e f)], [ 4, 5, 6 ] );
+
+        cmp_deeply(
+            [ $hash->as_list ],
+            [qw(a 1 b 2 c 3 d 4 e 5 f 6)],
+            'into non-empty hash'
+        );
+
+    }
+
+    # wacky arguments
+    {
+        my $hash = new_ok(HO);
+
+        $hash->zip( [ 'a', 'b', undef, 'd' ], [ 1, 2, 3, 4 ] );
+
+        cmp_deeply( [ $hash->as_list ],
+            [qw(a 1 b 2 d 4)], 'with empty key into empty hash' );
+
+        $hash->zip( [qw(c e f)], [ 3, 5 ] );
+
+        cmp_deeply(
+            [ $hash->as_list ],
+            [ qw(a 1 b 2 d 4 c 3 e 5), f => undef ],
+            'with extra key into non-empty hash'
+        );
+
+        $hash->zip( ['g'], [ 7, 8 ] );
+
+        cmp_deeply(
+            [ $hash->as_list ],
+            [ qw(a 1 b 2 d 4 c 3 e 5), f => undef, g => 7 ],
+            'with extra value into non-empty hash'
+        );
+
+    }
+
+    # Invalid arguments
+    {
+        my $hash = new_ok(HO);
+
+        my @keys = qw(a b c d);
+        my @vals = ( 1 .. 3 );
+
+        $hash->zip( \@keys, \@vals );
+
+        cmp_deeply(
+            [ $hash->as_list ],
+            [ a => 1, b => 2, c => 3, d => undef ],
+            'with extra key into empty hash'
+        );
+
+        cmp_deeply( \@vals, [ 1, 2, 3 ], 'no autovivification with fewer values' );
+
+    }
+
+    {
+
+        like(
+            exception {
+                new_ok(HO)->zip( [qw(a b c)], [ 1, 2, 3 ], [qw(X Y Z)] );
+            },
+            qr/\Qzip() requires two array references/,
+            'too many arguments'
+        );
+
+        like(
+            exception {
+                new_ok(HO)->zip( [qw(a b c)] );
+            },
+            qr/\Qzip() requires two array references/,
+            'too few arguments'
+        );
+
+        like(
+            exception {
+                new_ok(HO)->zip( 'a', {});
+            },
+            qr/\Qzip() requires two array references/,
+            'wrong kinds of arguments'
+        );
+
+    }
+
+};
+
 subtest "modifiers" => sub {
 
     my $hash = new_ok( HO, [ 'a' => 0 ] );

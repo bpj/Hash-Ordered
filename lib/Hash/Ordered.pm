@@ -400,6 +400,38 @@ sub merge {
     return @{ $self->[_KEYS] } - $self->[_GCNT];
 }
 
+=method zip
+
+    $oh->zip( \@keys, \@values );
+
+Updates/adds key-value pairs such that the items in C<@keys> become
+the keys and the corresponding items in C<@values> become the values.
+This is equivalent to
+
+    $oh->merge( $keys[0] => $values[0], ... );
+
+If there are more elements in C<@keys> than in C<@values> the additional
+keys will get C<undef> as value.
+If there are more elements in C<@values> than in C<@keys> the additional values are ignored. Key-value pairs where the key is C<undef> are also ignored, so that these two statements are equivalent: 
+
+    $oh->zip( [ 'a', 'b', undef, 'd' ], [ 1, 2, 3, 4 ] );
+    $oh->zip( [ 'a', 'b', 'd' ], [ 1, 2, 4 ] );
+
+=cut
+
+sub zip {
+    my $self = CORE::shift;
+    if ( 2 == @_ ) {
+        unless ( grep { ref($_) ne 'ARRAY' } @_ ) {
+            my ( $keys, $vals ) = @_;
+            return $self->merge(
+                map { ; defined( $keys->[$_] ) ? ( $keys->[$_] => $vals->[$_] ) : () }
+                  0 .. $#$keys );
+        }
+    }
+    Carp::croak('zip() requires two array references');
+}
+
 =method as_list
 
     @pairs = $oh->as_list;
